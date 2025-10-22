@@ -169,6 +169,16 @@ RUN echo "memory_limit = -1;" >> "/root/.phpenv/versions/$PHP_81_VERSION/etc/con
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
 #****************      END PHP     ****************************************************
 
+#****************      INSTALL FROM BUILDSPEC.YML     ****************************************************
+#  in order to avoid running these commands during built time.
+RUN apt-get install -y php-pear php-dev
+RUN pecl install mongodb-1.21.0
+RUN echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_81_VERSION/etc/php.ini"
+RUN pecl install redis
+RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_81_VERSION/etc/php.ini"
+
+#****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
+
 #=======================End of layer: runtimes  =================
 
 FROM runtimes AS runtimes_n_corretto
