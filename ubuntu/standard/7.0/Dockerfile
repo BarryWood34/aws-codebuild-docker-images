@@ -214,175 +214,9 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
     && apt update \
     && apt install gh -y
 
-# Install Chrome
-RUN set -ex \
-    && curl -L https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb --output /tmp/google-chrome-stable_current_amd64.deb \
-    && dpkg -i /tmp/google-chrome-stable_current_amd64.deb || apt-get install -f -y \
-    && rm -rf /tmp/* \
-    && google-chrome --version
-
-# Install ChromeDriver
-# https://googlechromelabs.github.io/chrome-for-testing/
-# https://github.com/GoogleChromeLabs/chrome-for-testing#json-api-endpoints
-RUN set -ex \
-    && CHROME_DRIVER_DOWNLOAD_URL=$(curl -sL https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform == "linux64") | .url') \
-    && curl -L $CHROME_DRIVER_DOWNLOAD_URL --output /tmp/chromedriver-linux64.zip \
-    && unzip -q /tmp/chromedriver-linux64.zip -d /opt/chromedriver \
-    && ln -s /opt/chromedriver/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
-    && rm -rf /tmp/* \
-    && chromedriver --version
-
-# Install Chromium
-# See instruction: https://www.chromium.org/getting-involved/download-chromium/
-RUN set -ex \
-    && CHROMIUM_VERSION=$(curl -sL https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2FLAST_CHANGE?alt=media) \
-    && CHROMIUM_DOWNLOAD_URL=https://www.googleapis.com/download/storage/v1/b/chromium-browser-snapshots/o/Linux_x64%2F$CHROMIUM_VERSION%2Fchrome-linux.zip?alt=media \
-    && curl -L $CHROMIUM_DOWNLOAD_URL --output /tmp/chromium-linux.zip \
-    && unzip -q /tmp/chromium-linux.zip -d /opt/chromium \
-    && ln -s /opt/chromium/chrome-linux/chrome /usr/local/bin/chromium \
-    && ln -s /opt/chromium/chrome-linux/chrome /usr/local/bin/chromium-browser \
-    && rm -rf /tmp/* \
-    && chromium --version \
-    && chromium-browser --version
-
-# Install Mozilla Firefox
-RUN set -ex \
-    && add-apt-repository ppa:mozillateam/ppa \
-    && printf "Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n" > /etc/apt/preferences.d/mozilla \
-    && apt install -y -qq --no-install-recommends firefox \
-    && firefox --version
-
-# Install Geckodriver
-RUN set -ex \
-    && apt install -y -qq firefox-geckodriver \
-    && geckodriver --version
-
-# Install Selenium server
-RUN set -ex \
-    && SELENIUM_DOWNLOAD_URL=$(curl -sL https://api.github.com/repos/SeleniumHQ/selenium/releases/latest | jq -r ' .assets[] | select(.browser_download_url | contains("selenium-server") and endswith(".jar")) | .browser_download_url') \
-    && wget -q -P /usr/share/java $SELENIUM_DOWNLOAD_URL
-
 #=======================End of stage: tools  =================
 FROM tools AS runtimes
 
-#****************     .NET-CORE     *******************************************************
-
-# Dotnet
-ENV PATH="/root/.dotnet/:/root/.dotnet/tools/:$PATH"
-RUN set -ex  \
-    && wget -qO /usr/local/bin/dotnet-install.sh https://dot.net/v1/dotnet-install.sh \
-    && chmod +x /usr/local/bin/dotnet-install.sh
-
-ENV DOTNET_10_SDK_VERSION="10.0.101" \
-    DOTNET_10_GLOBAL_JSON_SDK_VERSION="10.0.0" \
-    DOTNET_8_SDK_VERSION="8.0.411" \
-    DOTNET_6_SDK_VERSION="6.0.428" \
-    DOTNET_6_GLOBAL_JSON_SDK_VERSION="6.0.0" \
-    DOTNET_8_GLOBAL_JSON_SDK_VERSION="8.0.0"
-ENV DOTNET_ROOT="/root/.dotnet"
-
-# Add .NET Core 10 Global Tools install folder to PATH
-RUN  /usr/local/bin/dotnet-install.sh -v $DOTNET_10_SDK_VERSION \
-     && dotnet --list-sdks \
-     && rm -rf /tmp/*
-
-# Add .NET Core 8 Global Tools install folder to PATH
-RUN  /usr/local/bin/dotnet-install.sh -v $DOTNET_8_SDK_VERSION \
-     && dotnet --list-sdks \
-     && rm -rf /tmp/*
-
-# Add .NET Core 6 Global Tools install folder to PATH
-RUN  /usr/local/bin/dotnet-install.sh -v $DOTNET_6_SDK_VERSION \
-     && dotnet --list-sdks \
-     && rm -rf /tmp/* \
-     && cd /codebuild && dotnet new globaljson --force --sdk-version $DOTNET_6_GLOBAL_JSON_SDK_VERSION --roll-forward latestFeature --output .
-
-# Trigger the population of the local package cache
-ENV NUGET_XMLDOC_MODE=skip
-RUN set -ex \
-    && mkdir warmup \
-    && cd warmup \
-    && dotnet new \
-    && cd .. \
-    && rm -rf warmup \
-    && rm -rf /tmp/NuGetScratch
-
-# Install Powershell Core
-# See instructions at https://learn.microsoft.com/en-us/powershell/scripting/install/install-other-linux?view=powershell-7.4#installation-using-a-binary-archive-file
-ARG POWERSHELL_VERSION=7.5.4
-ARG POWERSHELL_DOWNLOAD_URL=https://github.com/PowerShell/PowerShell/releases/download/v$POWERSHELL_VERSION/powershell-$POWERSHELL_VERSION-linux-x64.tar.gz
-ARG POWERSHELL_DOWNLOAD_SHA=1FD7983FE56CA9E6233F126925EDB24BF6B6B33E356B69996D925C4DB94E2FEF
-
-RUN set -ex \
-    && curl -SL $POWERSHELL_DOWNLOAD_URL --output powershell.tar.gz \
-    && echo "$POWERSHELL_DOWNLOAD_SHA powershell.tar.gz" | sha256sum -c - \
-    && mkdir -p /opt/microsoft/powershell/$POWERSHELL_VERSION \
-    && tar zxf powershell.tar.gz -C /opt/microsoft/powershell/$POWERSHELL_VERSION \
-    && rm powershell.tar.gz \
-    && chmod +x /opt/microsoft/powershell/$POWERSHELL_VERSION/pwsh \
-    && ln -s /opt/microsoft/powershell/$POWERSHELL_VERSION/pwsh /usr/bin/pwsh \
-    && pwsh --version
-#****************     END .NET-CORE     *******************************************************
-
-
-#****************      NODEJS     ****************************************************
-
-#nodejs
-ARG SRC_DIR="/usr/src"
-ARG N_SRC_DIR="$SRC_DIR/n"
-
-ENV NODE_18_VERSION="18.20.8" \
-    NODE_20_VERSION="20.20.0" \
-    NODE_22_VERSION="22.22.0" \
-    NODE_24_VERSION="24.14.0"
-
-RUN git clone https://github.com/tj/n $N_SRC_DIR \
-    && cd $N_SRC_DIR && make install
-
-RUN n $NODE_18_VERSION && npm install --save-dev -g -f grunt grunt-cli webpack yarn && \
-    n $NODE_20_VERSION && npm install --save-dev -g -f grunt grunt-cli webpack yarn && \
-    n $NODE_22_VERSION && npm install --save-dev -g -f grunt grunt-cli webpack yarn && \
-    n $NODE_24_VERSION && npm install --save-dev -g -f grunt grunt-cli webpack yarn
-
-# Install npm 11.7.0 globally and copy to Node 22 and 24 cache locations
-# Node 18 and 20 use their default bundled npm versions
-RUN npm install -g npm@11.7.0 && \
-    cp -rf /usr/local/lib/node_modules/npm /usr/local/n/versions/node/$NODE_22_VERSION/lib/node_modules/ && \
-    cp -rf /usr/local/lib/node_modules/npm /usr/local/n/versions/node/$NODE_24_VERSION/lib/node_modules/
-
-RUN cd / && rm -rf $N_SRC_DIR && rm -rf /tmp/* && rm -rf ~/.npm/_logs/
-
-ENV N_PRESERVE_COREPACK=1
-#****************      END NODEJS     ****************************************************
-
-#**************** RUBY *********************************************************
-
-#rubyenv
-ENV RBENV_SRC_DIR="/usr/local/rbenv"
-
-ENV PATH="/root/.rbenv/shims:$RBENV_SRC_DIR/bin:$RBENV_SRC_DIR/shims:$PATH" \
-    RUBY_BUILD_SRC_DIR="$RBENV_SRC_DIR/plugins/ruby-build"
-
-RUN set -ex \
-    && git clone https://github.com/rbenv/rbenv.git $RBENV_SRC_DIR \
-    && mkdir -p $RBENV_SRC_DIR/plugins \
-    && git clone https://github.com/rbenv/ruby-build.git $RUBY_BUILD_SRC_DIR \
-    && sh $RUBY_BUILD_SRC_DIR/install.sh
-
-ENV RUBY_40_VERSION="4.0.1" \
-    RUBY_34_VERSION="3.4.8" \
-    RUBY_33_VERSION="3.3.10" \
-    RUBY_32_VERSION="3.2.10" \
-    RUBY_31_VERSION="3.1.7"
-
-RUN rbenv install $RUBY_40_VERSION \
-    && rbenv install $RUBY_34_VERSION \
-    && rbenv install $RUBY_33_VERSION \
-    && rbenv install $RUBY_32_VERSION \
-    && rbenv install $RUBY_31_VERSION \
-    && rbenv global $RUBY_32_VERSION && ruby -v \
-    && rm -rf /tmp/*
-#**************** END RUBY *****************************************************
 
 #**************** PYTHON *****************************************************
 
@@ -443,151 +277,23 @@ RUN phpenv update \
     && rm -rf /tmp/*
 #****************      END PHP     ****************************************************
 
-#****************     GOLANG     ****************************************************
+#****************      INSTALL FROM BUILDSPEC.YML     ****************************************************
+#  in order to avoid running these commands during built time.
+RUN apt-get install -y php-pear php-dev
+RUN pecl install mongodb-1.21.0
+RUN echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini"
+RUN pecl install redis
+RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini"
 
-#goenv
-RUN git clone https://github.com/syndbg/goenv.git $HOME/.goenv
-ENV PATH="/root/.goenv/shims:/root/.goenv/bin:/go/bin:$PATH"
-
-ENV GOLANG_26_VERSION="1.26.0" \
-    GOLANG_25_VERSION="1.25.7" \
-    GOLANG_24_VERSION="1.24.13" \
-    GOLANG_23_VERSION="1.23.12" \
-    GOLANG_22_VERSION="1.22.12" \
-    GOLANG_21_VERSION="1.21.13" \
-    GOLANG_20_VERSION="1.20.14"
-ENV GOENV_DISABLE_GOPATH=1 \
-    GOPATH="/go"
-
-RUN goenv install $GOLANG_26_VERSION \
-    && goenv install $GOLANG_25_VERSION \
-    && goenv install $GOLANG_24_VERSION \
-    && goenv install $GOLANG_23_VERSION \
-    && goenv install $GOLANG_22_VERSION \
-    && goenv install $GOLANG_21_VERSION \
-    && goenv install $GOLANG_20_VERSION \
-    && goenv global $GOLANG_20_VERSION \
-    && go env -w GO111MODULE=auto \
-    && go get -u github.com/golang/dep/cmd/dep \
-    && rm -rf /tmp/*
-#****************      END GOLANG     *******************************
-
-#****************      JAVA     ****************************************************
-ENV JAVA_25_HOME="/usr/lib/jvm/java-25-amazon-corretto" \
-    JDK_25_HOME="/usr/lib/jvm/java-25-amazon-corretto" \
-    JRE_25_HOME="/usr/lib/jvm/java-25-amazon-corretto" \
-    JAVA_21_HOME="/usr/lib/jvm/java-21-amazon-corretto" \
-    JDK_21_HOME="/usr/lib/jvm/java-21-amazon-corretto" \
-    JRE_21_HOME="/usr/lib/jvm/java-21-amazon-corretto" \
-    JAVA_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
-    JDK_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
-    JRE_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
-    JAVA_11_HOME="/usr/lib/jvm/java-11-amazon-corretto" \
-    JDK_11_HOME="/usr/lib/jvm/java-11-amazon-corretto" \
-    JRE_11_HOME="/usr/lib/jvm/java-11-amazon-corretto" \
-    JAVA_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto" \
-    JDK_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto" \
-    JRE_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto"
-ARG ANT_VERSION=1.10.15
-ARG MAVEN_HOME="/opt/maven"
-ARG MAVEN_VERSION=3.9.12
-ARG INSTALLED_GRADLE_VERSIONS="8.14.4 9.4.0"
-ARG GRADLE_9_VERSION=9.4.0
-ARG GRADLE_8_VERSION=8.14.4
-ARG GRADLE_VERSION=8.14.4
-ARG SBT_VERSION=1.12.5
-ARG GRADLE_PATH="$SRC_DIR/gradle"
-ARG ANT_DOWNLOAD_SHA512="d78427aff207592c024ff1552dc04f7b57065a195c42d398fcffe7a0145e8d00cd46786f5aa52e77ab0fdf81334f065eb8011eecd2b48f7228e97ff4cb20d16c"
-ARG MAVEN_DOWNLOAD_SHA512="0a1be79f02466533fc1a80abbef8796e4f737c46c6574ede5658b110899942a94db634477dfd3745501c80aef9aac0d4f841d38574373f7e2d24cce89d694f70"
-ARG GRADLE_DOWNLOADS_SHA256="e571f9dc2cafeabaf6319756838042bb27c3c1aad307d41c1400cb12dec7b9e0 8.14.4\nb21468753cb43c167738ee04f10c706c46459cf8f8ae6ea132dc9ce589a261f2 9.4.0"
-ARG SBT_DOWNLOAD_SHA256="f213d84b2efd01cc6b52799a9c92984a0c5d5f072b5ea41722ab8f979f289be0"
-
-ARG MAVEN_CONFIG_HOME="/root/.m2"
-
-ENV JAVA_HOME="$JAVA_17_HOME" \
-    JDK_HOME="$JDK_17_HOME" \
-    JRE_HOME="$JRE_17_HOME"
-
-ENV PATH="${PATH}:/opt/tools"
-
-RUN set -ex \
-    && apt-get update \
-    && apt-get install -y -qq software-properties-common apt-utils \
-    && wget -O - https://apt.corretto.aws/corretto.key | sudo gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" | sudo tee /etc/apt/sources.list.d/corretto.list \
-    && apt-get update \
-    && apt-get install -y -qq java-25-amazon-corretto-jdk \
-    && apt-get install -y -qq java-21-amazon-corretto-jdk \
-    && apt-get install -y -qq java-17-amazon-corretto-jdk \
-    && apt-get install -y -qq java-11-amazon-corretto-jdk \
-    && apt-get install -y -qq java-1.8.0-amazon-corretto-jdk \
-    && apt-get install -y -qq --no-install-recommends ca-certificates-java \
-    # Ensure Java cacerts symlink points to valid location
-    && update-ca-certificates -f \
-    && dpkg --add-architecture i386 \
-    && apt-get update \
-    && for tool_path in $JAVA_HOME/bin/*; do \
-          tool=`basename $tool_path`; \
-          update-alternatives --install /usr/bin/$tool $tool $tool_path 10000; \
-          update-alternatives --set $tool $tool_path; \
-        done \
-     && rm $JAVA_HOME/lib/security/cacerts && ln -s /etc/ssl/certs/java/cacerts $JAVA_HOME/lib/security/cacerts \
-    # Install Ant
-    && curl -LSso /var/tmp/apache-ant-$ANT_VERSION-bin.tar.gz https://archive.apache.org/dist/ant/binaries/apache-ant-$ANT_VERSION-bin.tar.gz  \
-    && echo "$ANT_DOWNLOAD_SHA512 /var/tmp/apache-ant-$ANT_VERSION-bin.tar.gz" | sha512sum -c - \
-    && tar -xzf /var/tmp/apache-ant-$ANT_VERSION-bin.tar.gz -C /opt \
-    && rm /var/tmp/apache-ant-$ANT_VERSION-bin.tar.gz \
-    && update-alternatives --install /usr/bin/ant ant /opt/apache-ant-$ANT_VERSION/bin/ant 10000
-
-RUN set -ex \
-    # Install Maven
-    && mkdir -p $MAVEN_HOME \
-    && curl -LSso /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz https://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz \
-    && echo "$MAVEN_DOWNLOAD_SHA512 /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz" | sha512sum -c - \
-    && tar xzf /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz -C $MAVEN_HOME --strip-components=1 \
-    && rm /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz \
-    && update-alternatives --install /usr/bin/mvn mvn /opt/maven/bin/mvn 10000 \
-    && mkdir -p $MAVEN_CONFIG_HOME \
-    # Install Gradle
-    && mkdir -p $GRADLE_PATH \
-    && for version in $INSTALLED_GRADLE_VERSIONS; do { \
-       wget -q "https://services.gradle.org/distributions/gradle-$version-all.zip" -O "$GRADLE_PATH/gradle-$version-all.zip" \
-       && unzip -q "$GRADLE_PATH/gradle-$version-all.zip" -d /usr/local \
-       && echo -e "$GRADLE_DOWNLOADS_SHA256" | grep "$version" | sed "s|$version|$GRADLE_PATH/gradle-$version-all.zip|" | sha256sum -c - \
-       && rm "$GRADLE_PATH/gradle-$version-all.zip" \
-       && mkdir "/tmp/gradle-$version" \
-       && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" init --overwrite \
-       && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" wrapper \
-       && perl -pi -e "s/gradle-$version-bin.zip/gradle-$version-all.zip/" "/tmp/gradle-$version/gradle/wrapper/gradle-wrapper.properties" \
-       && "/tmp/gradle-$version/gradlew" -p "/tmp/gradle-$version" init --overwrite \
-       && rm -rf "/tmp/gradle-$version"; \
-     }; done \
-    # Install default GRADLE_VERSION to path
-    && ln -s /usr/local/gradle-$GRADLE_VERSION/bin/gradle /usr/bin/gradle \
-    && rm -rf $GRADLE_PATH \
-    # Install SBT
-    && curl -fSL "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" -o sbt.tgz \
-    && echo "${SBT_DOWNLOAD_SHA256} *sbt.tgz" | sha256sum -c - \
-    && tar xzf sbt.tgz -C /usr/local/bin/ \
-    && rm sbt.tgz
-
-ENV PATH="/usr/local/bin/sbt/bin:$PATH"
-RUN sbt --allow-empty version -Dsbt.rootdir=true
-# Cleanup -- if we do not run apt-get update after apt-get clean, it will remove available corretto versions to install
-RUN rm -fr /var/lib/apt/lists/* /tmp/* /var/tmp/* && apt-get clean && apt-get update
-#****************     END JAVA     ****************************************************
+#****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
 
 #=======================End of stage: runtimes  =================
 
 FROM runtimes AS std_v7
 
 # Activate runtime versions specific to image version.
-RUN n $NODE_18_VERSION
 RUN pyenv global $PYTHON_311_VERSION
 RUN phpenv global $PHP_82_VERSION
-RUN rbenv global $RUBY_32_VERSION
-RUN goenv global $GOLANG_20_VERSION
-RUN dotnet new globaljson --force --sdk-version $DOTNET_6_GLOBAL_JSON_SDK_VERSION --roll-forward latestFeature --output .
 
 # Configure SSH
 COPY ssh_config /root/.ssh/config
