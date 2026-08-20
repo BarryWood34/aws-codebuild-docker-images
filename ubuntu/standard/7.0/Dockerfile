@@ -224,24 +224,15 @@ FROM tools AS runtimes
 RUN curl -L https://raw.githubusercontent.com/phpenv/phpenv-installer/master/bin/phpenv-installer | bash
 ENV PATH="/root/.phpenv/shims:/root/.phpenv/bin:$PATH"
 
-ENV PHP_85_VERSION="8.5.3" \
-    PHP_84_VERSION="8.4.18" \
-    PHP_83_VERSION="8.3.30" \
-    PHP_82_VERSION="8.2.30"
+ENV PHP_83_VERSION="8.3.30"
 # Set environment variables for PHP configure options
 ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsql --with-libedit"
 
 RUN phpenv update \
-    && phpenv install $PHP_85_VERSION \
-    && phpenv install $PHP_84_VERSION \
     && phpenv install $PHP_83_VERSION \
-    && phpenv install $PHP_82_VERSION \
-    && phpenv global $PHP_82_VERSION \
+    && phpenv global $PHP_83_VERSION \
     && php -v \
-    && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_85_VERSION/etc/conf.d/memory.ini" \
-    && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_84_VERSION/etc/conf.d/memory.ini" \
     && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/conf.d/memory.ini" \
-    && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_82_VERSION/etc/conf.d/memory.ini" \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer \
     && rm -rf /tmp/*
 #****************      END PHP     ****************************************************
@@ -261,7 +252,7 @@ RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php
 FROM runtimes AS std_v7
 
 # Activate runtime versions specific to image version.
-RUN phpenv global $PHP_82_VERSION
+RUN phpenv global $PHP_83_VERSION
 
 # Configure SSH
 COPY ssh_config /root/.ssh/config
