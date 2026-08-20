@@ -218,37 +218,6 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
 FROM tools AS runtimes
 
 
-#**************** PYTHON *****************************************************
-
-#Install pyenv
-RUN curl -s -S -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
-ENV PATH="/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
-
-ENV PYTHON_314_VERSION="3.14.3" \
-    PYTHON_313_VERSION="3.13.12" \
-    PYTHON_312_VERSION="3.12.13" \
-    PYTHON_311_VERSION="3.11.15" \
-    PYTHON_310_VERSION="3.10.20" \
-    PYTHON_39_VERSION="3.9.25" \
-    PYTHON_PIP_VERSION="26.0.1" \
-    PYYAML_VERSION="6.0.3" \
-    PYTHON_SETUPTOOLS_VERSION="82.0.0" \
-    PYTHON_CONFIGURE_OPTS="--enable-shared --enable-loadable-sqlite-extensions"
-
-#Install python 14, 13, 12, 11, 10, 9
-RUN set -ex \
-    && for version in $PYTHON_314_VERSION $PYTHON_313_VERSION $PYTHON_312_VERSION $PYTHON_311_VERSION $PYTHON_310_VERSION $PYTHON_39_VERSION; do \
-        pyenv install $version \
-        && pyenv global $version \
-        && pip3 install --no-cache-dir --upgrade --force-reinstall "pip==$PYTHON_PIP_VERSION" \
-        && pip3 install wheel \
-        && pip3 install --no-cache-dir --upgrade "setuptools==$PYTHON_SETUPTOOLS_VERSION" boto3 pipenv virtualenv \
-        && pip3 install --no-build-isolation "Cython<3" "PyYAML==$PYYAML_VERSION" \
-        && pip3 uninstall cython --yes; \
-    done \
-    && rm -rf /tmp/*
-#**************** END PYTHON *****************************************************
-
 #****************      PHP     ****************************************************
 
 #phpenv
@@ -292,7 +261,6 @@ RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php
 FROM runtimes AS std_v7
 
 # Activate runtime versions specific to image version.
-RUN pyenv global $PYTHON_311_VERSION
 RUN phpenv global $PHP_82_VERSION
 
 # Configure SSH
