@@ -205,7 +205,7 @@ RUN set -ex \
 #****************      PHP     ****************************************************
 
 # Installed in packages
-ENV PHP_83_VERSION="8.3.13"
+ENV PHP_83_VERSION="8.3.36"
 
 # Set environment variables for PHP configure options
 ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsql --with-libedit"
