@@ -42,72 +42,11 @@ RUN useradd codebuild-user
 
 FROM core AS tools
 
-# Install AWS SAM CLI
-RUN wget -nv https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-arm64.zip -O /tmp/samcli.zip \
-    && unzip -q /tmp/samcli.zip -d /opt \
-    && /opt/install --update -i /usr/local/sam-cli -b /usr/local/bin \
-    && rm /tmp/samcli.zip /opt/install \
-    && rm -rf /opt/aws-sam-cli-src \
-    && sam --version
-
-# Install stunnel
-RUN set -ex \
-   && STUNNEL_VERSION=5.77 \
-   && STUNNEL_TAR=stunnel-$STUNNEL_VERSION.tar.gz \
-   && STUNNEL_SHA256="ec026f4fae4e0d25b940cc7a9451d925e359e7fd59e9edad20baea66ce45f263" \
-   && curl -o $STUNNEL_TAR https://www.stunnel.org/archive/5.x/$STUNNEL_TAR \
-   && echo "$STUNNEL_SHA256 $STUNNEL_TAR" | sha256sum -c - \
-   && tar xvfz $STUNNEL_TAR \
-   && cd stunnel-$STUNNEL_VERSION \
-   && ./configure \
-   && make -j"$(nproc)" \
-   && make install \
-   && openssl genrsa -out key.pem 2048 \
-   && openssl req -new -x509 -key key.pem -out cert.pem -days 1095 -subj "/C=US/ST=Washington/L=Seattle/O=Amazon/OU=Codebuild/CN=codebuild.amazon.com" \
-   && cat key.pem cert.pem >> /usr/local/etc/stunnel/stunnel.pem \
-   && cd .. ; rm -rf stunnel-${STUNNEL_VERSION}* \
-   && stunnel -version
-
-# AWS Tools
-# aws-iam-authenticator: https://github.com/kubernetes-sigs/aws-iam-authenticator/releases
-# kubectl: https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
-# eksctl: https://eksctl.io/installation/
-# ecs-cli: https://github.com/aws/amazon-ecs-cli?tab=readme-ov-file#installing
-# Check out the KUBERNETES_VERSION and AMAZON_EKS_S3_PATH from the curl command in:
-# https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#linux_arm64_kubectl
-RUN set -ex \
-    && KUBERNETES_VERSION=1.35.2 \
-    && AMAZON_EKS_S3_PATH=2026-02-27 \
-    && curl -sS -o /usr/local/bin/aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/$KUBERNETES_VERSION/$AMAZON_EKS_S3_PATH/bin/linux/arm64/aws-iam-authenticator \
-    && chmod +x /usr/local/bin/aws-iam-authenticator \
-    && aws-iam-authenticator version \
-    && curl -sS -o /usr/local/bin/kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/$KUBERNETES_VERSION/$AMAZON_EKS_S3_PATH/bin/linux/arm64/kubectl \
-    && chmod +x /usr/local/bin/kubectl \
-    && kubectl version --client \
-    && curl -sS -L https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_arm64.tar.gz | tar xz -C /usr/local/bin \
-    && chmod +x /usr/local/bin/eksctl \
-    && eksctl version \
-    && curl -sS -o /usr/local/bin/ecs-cli https://amazon-ecs-cli.s3.amazonaws.com/ecs-cli-linux-arm64-latest \
-    && chmod +x /usr/local/bin/ecs-cli \
-    && ecs-cli --version
-
-# Install Pack
-RUN set -ex \
-    && PACK_VERSION=0.38.2 \
-    && (curl -sSL "https://github.com/buildpacks/pack/releases/download/v${PACK_VERSION}/pack-v${PACK_VERSION}-linux-arm64.tgz" | tar -C /usr/local/bin/ --no-same-owner -xzv pack) \
-    && pack --version
-
 # Configure SSM
 RUN set -ex \
     && yum install -yq https://s3.amazonaws.com/amazon-ssm-us-east-1/latest/linux_arm64/amazon-ssm-agent.rpm
 
 # Install env tools for runtimes
-
-## Dotnet
-ENV PATH="/root/.dotnet/:/root/.dotnet/tools/:$PATH"
-RUN set -ex  \
-    && wget -qO /usr/local/bin/dotnet-install.sh https://dot.net/v1/dotnet-install.sh \
-    && chmod +x /usr/local/bin/dotnet-install.sh
 
 ##nodejs
 ARG SRC_DIR="/usr/src"
@@ -126,12 +65,6 @@ RUN curl https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip -o /tmp/awscl
      && rm /tmp/awscliv2.zip \
      && rm -rf /opt/aws \
      && aws --version
-
-## gh
-# See instruction: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#fedora-centos-red-hat-enterprise-linux-dnf
-RUN yum -y install 'dnf-command(config-manager)' \
-    && yum config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo \
-    && yum -y install gh --repo gh-cli
 #=======================End of layer: tools  =================
 
 FROM tools AS runtimes_1

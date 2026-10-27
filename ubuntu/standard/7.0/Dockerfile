@@ -71,13 +71,6 @@ RUN useradd codebuild-user
 
 FROM core AS tools
 
-# Install AWS SAM CLI
-RUN wget -nv https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip -O /tmp/samcli.zip \
-    && unzip -q /tmp/samcli.zip -d /opt/samcli \
-    && /opt/samcli/install --update -i /usr/local/sam-cli -b /usr/local/bin \
-    && rm -rf /opt/samcli /tmp/* \
-    && sam --version
-
 # Install AWS CLI v2
 # https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html
 RUN curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip \
@@ -86,66 +79,12 @@ RUN curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscli
     && rm -rf /opt/awscli /tmp/* \
     && aws --version
 
-# Install stunnel
-RUN set -ex \
-    && STUNNEL_VERSION=5.77 \
-    && STUNNEL_TAR=stunnel-$STUNNEL_VERSION.tar.gz \
-    && STUNNEL_SHA256="ec026f4fae4e0d25b940cc7a9451d925e359e7fd59e9edad20baea66ce45f263" \
-    && curl -o $STUNNEL_TAR https://www.stunnel.org/archive/5.x/$STUNNEL_TAR && echo "$STUNNEL_SHA256 $STUNNEL_TAR" | sha256sum --check && tar xfz $STUNNEL_TAR \
-    && cd stunnel-$STUNNEL_VERSION \
-    && ./configure \
-    && make -j"$(nproc)" \
-    && make install \
-    && openssl genrsa -out key.pem 2048 \
-    && openssl req -new -x509 -key key.pem -out cert.pem -days 1095 -subj "/C=US/ST=Washington/L=Seattle/O=Amazon/OU=Codebuild/CN=codebuild.amazon.com" \
-    && cat key.pem cert.pem >> /usr/local/etc/stunnel/stunnel.pem \
-    && cd .. && rm -rf stunnel-${STUNNEL_VERSION}* \
-    && stunnel -version
-
-# AWS Tools
-# aws-iam-authenticator: https://github.com/kubernetes-sigs/aws-iam-authenticator/releases
-# kubectl: https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
-# eksctl: https://eksctl.io/installation/
-# ecs-cli: https://github.com/aws/amazon-ecs-cli?tab=readme-ov-file#installing
-# Check out the KUBERNETES_VERSION and AMAZON_EKS_S3_PATH from the curl command in:
-# https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html#linux_amd64_kubectl
-RUN set -ex \
-    && KUBERNETES_VERSION=1.35.2 \
-    && AMAZON_EKS_S3_PATH=2026-02-27 \
-    && curl -sS -o /usr/local/bin/aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/$KUBERNETES_VERSION/$AMAZON_EKS_S3_PATH/bin/linux/amd64/aws-iam-authenticator \
-    && chmod +x /usr/local/bin/aws-iam-authenticator \
-    && aws-iam-authenticator version \
-    && curl -sS -o /usr/local/bin/kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/$KUBERNETES_VERSION/$AMAZON_EKS_S3_PATH/bin/linux/amd64/kubectl \
-    && chmod +x /usr/local/bin/kubectl \
-    && kubectl version --client \
-    && curl -sS -L https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz | tar xz -C /usr/local/bin \
-    && chmod +x /usr/local/bin/eksctl \
-    && eksctl version \
-    && curl -sS -o /usr/local/bin/ecs-cli https://amazon-ecs-cli.s3.amazonaws.com/ecs-cli-linux-amd64-latest \
-    && chmod +x /usr/local/bin/ecs-cli \
-    && ecs-cli --version
-
 # Configure SSM
 RUN set -ex \
     && mkdir /tmp/ssm \
     && cd /tmp/ssm \
     && wget -q https://s3.amazonaws.com/amazon-ssm-us-east-1/latest/debian_amd64/amazon-ssm-agent.deb \
     && dpkg -i amazon-ssm-agent.deb
-
-# Install Pack
-RUN set -ex \
-    && PACK_VERSION=0.38.0 \
-    && (curl -sSL "https://github.com/buildpacks/pack/releases/download/v${PACK_VERSION}/pack-v${PACK_VERSION}-linux.tgz" | tar -C /usr/local/bin/ --no-same-owner -xzv pack) \
-    && pack --version
-
-# Install gh
-# Instruction: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian-ubuntu-linux-raspberry-pi-os-apt
-RUN mkdir -p -m 755 /etc/apt/keyrings \
-    && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt update \
-    && apt install gh -y
 
 #=======================End of stage: tools  =================
 FROM tools AS runtimes
