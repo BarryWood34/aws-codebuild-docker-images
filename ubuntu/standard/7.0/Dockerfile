@@ -31,11 +31,11 @@ RUN set -ex \
         coreutils curl dirmngr dnsutils docbook-xml docbook-xsl dpkg dpkg-dev \
         e2fsprogs expect fakeroot file findutils flex fonts-noto-color-emoji ftp \
         g++ gcc git-lfs gettext gettext-base gnupg2 groff gzip \
-        haveged imagemagick iproute2 iptables jq less \
+        haveged imagemagick iproute2 jq less \
         lib32z1 libapr1 libaprutil1 libargon2-0-dev libbz2-dev \
         libc++-dev libc++abi-dev libc6-dev libcurl4-openssl-dev \
         libdb-dev libdbd-sqlite3-perl libdbi-perl libdpkg-perl \
-        libedit-dev liberror-perl libevent-dev libffi-dev  \
+        libedit-dev liberror-perl libevent-dev libffi-dev \
         libgeoip-dev libgbm-dev libgconf-2-4 libglib2.0-dev libgsl-dev libgtk-3-0 \
         libhttp-date-perl libio-pty-perl libjpeg-dev libkrb5-dev liblzma-dev \
         libmagic-dev libmagickcore-dev libmagickwand-dev libmysqlclient-dev \
@@ -139,14 +139,6 @@ RUN set -ex \
     && chmod +x /usr/local/bin/ecs-cli \
     && ecs-cli --version
 
-# Install amazon-ecr-credential-helper
-# To configure: https://github.com/awslabs/amazon-ecr-credential-helper?tab=readme-ov-file#configuration
-# ecr-login is not configured because it conflicts with docker login commands https://github.com/awslabs/amazon-ecr-credential-helper/issues/102
-RUN set -ex \
-    && apt-get update \
-    && apt-get install -y -qq amazon-ecr-credential-helper \
-    && docker-credential-ecr-login -v
-
 # Configure SSM
 RUN set -ex \
     && mkdir /tmp/ssm \
@@ -159,51 +151,6 @@ RUN set -ex \
     && PACK_VERSION=0.38.0 \
     && (curl -sSL "https://github.com/buildpacks/pack/releases/download/v${PACK_VERSION}/pack-v${PACK_VERSION}-linux.tgz" | tar -C /usr/local/bin/ --no-same-owner -xzv pack) \
     && pack --version
-
-#****************        DOCKER    *********************************************
-ARG DOCKER_BUCKET="download.docker.com"
-ARG DOCKER_CHANNEL="stable"
-ARG DIND_COMMIT="3b5fac462d21ca164b3778647420016315289034"
-ARG DOCKER_COMPOSE_VERSION="5.1.0"
-ARG DOCKER_BUILDX_VERSION="0.32.1"
-ARG SRC_DIR="/usr/src"
-
-ARG DOCKER_SHA256="ea90cfd12e1eeb12aa1c971741adb8bd4ed88e2a574eaac13f5029a1dbc6300d"
-ARG DOCKER_VERSION="28.5.2"
-
-# Install Docker
-RUN set -ex \
-    && curl -fSL "https://${DOCKER_BUCKET}/linux/static/${DOCKER_CHANNEL}/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
-    && echo "${DOCKER_SHA256} *docker.tgz" | sha256sum -c - \
-    && tar --extract --file docker.tgz --strip-components 1  --directory /usr/local/bin/ \
-    && rm docker.tgz \
-    && docker -v \
-    # Check runc version
-    && runc -v \
-    # set up subuid/subgid so that "--userns-remap=default" works out-of-the-box
-    && addgroup dockremap \
-    && useradd -g dockremap dockremap \
-    && echo 'dockremap:165536:65536' >> /etc/subuid \
-    && echo 'dockremap:165536:65536' >> /etc/subgid \
-    && wget -q "https://raw.githubusercontent.com/docker/docker/${DIND_COMMIT}/hack/dind" -O /usr/local/bin/dind \
-    # Install docker compose as docker plugin and maintain docker-compose usage
-    && mkdir -p /usr/local/lib/docker/cli-plugins \
-    && curl -L https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-Linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose \
-    && chmod +x /usr/local/bin/dind /usr/local/lib/docker/cli-plugins/docker-compose \
-    && ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose \
-    # Ensure docker-compose and docker compose work
-    && docker-compose version \
-    && docker compose version \
-    # Add docker buildx tool
-    && curl -L https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-amd64 -o /usr/local/lib/docker/cli-plugins/docker-buildx \
-    && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx \
-    && ln -s /usr/local/lib/docker/cli-plugins/docker-buildx /usr/local/bin/docker-buildx \
-    # Ensure docker-buildx works
-    && docker-buildx version \
-    && docker buildx version
-
-VOLUME /var/lib/docker
-#*********************** END  DOCKER  ****************************
 
 # Install gh
 # Instruction: https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian-ubuntu-linux-raspberry-pi-os-apt
@@ -257,11 +204,7 @@ RUN phpenv global $PHP_83_VERSION
 # Configure SSH
 COPY ssh_config /root/.ssh/config
 COPY runtimes.yml /codebuild/image/config/runtimes.yml
-COPY dockerd-entrypoint.sh /usr/local/bin/dockerd-entrypoint.sh
-RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
 COPY legal/bill_of_material.txt /usr/share/doc/bill_of_material.txt
 COPY amazon-ssm-agent.json /etc/amazon/ssm/amazon-ssm-agent.json
-
-ENTRYPOINT ["/usr/local/bin/dockerd-entrypoint.sh"]
 
 #=======================END of STD:7.0  =================

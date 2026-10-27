@@ -22,7 +22,7 @@ RUN set -ex \
     && yum install -yq --allowerasing \
            ImageMagick asciidoc bzip2 bzip2-devel cvs cvsps automake \
            docbook-dtds docbook-style-xsl e2fsprogs expat-devel expect fakeroot \
-           glib2-devel groff gzip icu iptables-legacy jq krb5-server libargon2-devel \
+           glib2-devel groff gzip icu jq krb5-server libargon2-devel \
            libcurl-devel libdb-devel libedit-devel libevent-devel libffi-devel \
            libicu-devel libjpeg-devel libpng-devel libserf \
            libtidy libtidy-devel libunwind libwebp-devel libxml2-devel libxslt libxslt-devel \
@@ -32,7 +32,7 @@ RUN set -ex \
            postgresql-devel procps-ng python-configobj readline-devel rsync sgml-common \
            patch pkg-config procps python3-configobj llvm rsync sqlite-devel \
            subversion-perl tar tcl tk telnet texinfo time tzdata vim wget which xfsprogs xmlto xorg-x11-server-Xvfb xz-devel \
-           amazon-ecr-credential-helper git-lfs runc acl unzip \
+           git-lfs acl unzip \
            automake binutils bison brotli file findutils flex gnupg2 libsecret-devel libtool \
            libxkbfile-devel lz4 m4 make mesa-libgbm-devel mariadb105-devel mercurial net-tools pigz pkg-config xorriso xz zip
 
@@ -104,13 +104,6 @@ RUN set -ex \
     && curl -sS -o /usr/local/bin/ecs-cli https://amazon-ecs-cli.s3.amazonaws.com/ecs-cli-linux-arm64-latest \
     && chmod +x /usr/local/bin/ecs-cli \
     && ecs-cli --version
-
-# Install amazon-ecr-credential-helper
-# To configure: https://github.com/awslabs/amazon-ecr-credential-helper?tab=readme-ov-file#configuration
-# ecr-login is not configured because it conflicts with docker login commands https://github.com/awslabs/amazon-ecr-credential-helper/issues/102
-RUN set -ex \
-    && yum install -y -q amazon-ecr-credential-helper \
-    && docker-credential-ecr-login -v
 
 # Install Pack
 RUN set -ex \
@@ -223,57 +216,7 @@ RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php
 #****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
 
 #=======================End of layer: runtimes_1  =================
-FROM runtimes_1 AS runtimes_2
-
-#Docker 2.17
-ENV DOCKER_BUCKET="download.docker.com" \
-    DOCKER_CHANNEL="stable" \
-    DIND_COMMIT="3b5fac462d21ca164b3778647420016315289034"
-
-ENV DOCKER_SHA256="9e4f82996ab790724094475ebed33a736434bfe5d45231b676fef22ffb80044d"
-ENV DOCKER_VERSION="28.5.2"
-ENV DOCKER_COMPOSE_VERSION="5.1.0"
-ARG DOCKER_BUILDX_VERSION="0.32.1"
-
-VOLUME /var/lib/docker
-
-# Install Docker
-RUN set -ex \
-    && curl -fSL "https://${DOCKER_BUCKET}/linux/static/${DOCKER_CHANNEL}/aarch64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
-    && echo "${DOCKER_SHA256} *docker.tgz" | sha256sum -c - \
-    && tar --extract --file docker.tgz --strip-components 1  --directory /usr/local/bin \
-    && rm docker.tgz \
-    # replace runc package to resolve CVE-2024-21626
-    && rm /usr/local/bin/runc \
-    && ln -s /usr/sbin/runc /usr/local/bin/runc \
-    && runc -v \
-    && docker -v \
-    # set up subuid/subgid so that "--userns-remap=default" works out-of-the-box
-    && groupadd dockremap \
-    && useradd -g dockremap dockremap \
-    && echo 'dockremap:165536:65536' >> /etc/subuid \
-    && echo 'dockremap:165536:65536' >> /etc/subgid \
-    && wget -q "https://raw.githubusercontent.com/docker/docker/${DIND_COMMIT}/hack/dind" -O /usr/local/bin/dind \
-    # Install docker compose as docker plugin and maintain docker-compose usage
-    && mkdir -p /usr/local/lib/docker/cli-plugins \
-    && curl -L https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-Linux-aarch64 -o /usr/local/lib/docker/cli-plugins/docker-compose \
-    && chmod +x /usr/local/bin/dind /usr/local/lib/docker/cli-plugins/docker-compose \
-    && ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose \
-    && docker-compose version \
-    && docker compose version \
-    # Add docker buildx tool
-    && curl -L https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-arm64 -o /usr/local/lib/docker/cli-plugins/docker-buildx \
-    && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx \
-    && ln -s /usr/local/lib/docker/cli-plugins/docker-buildx /usr/local/bin/docker-buildx \
-    && docker-buildx version \
-    && docker buildx version
-
-# Install Finch
-RUN dnf install -y runfinch-finch \
-    && finch --version
-
-#=======================End of layer: runtimes_2  =================
-FROM runtimes_2 AS runtimes_3
+FROM runtimes_1 AS runtimes_3
 
 #===================END of runtimes_3 ==============
 FROM runtimes_3 AS aarch64_v3
@@ -286,11 +229,8 @@ RUN phpenv global $PHP_83_VERSION
 # Configure SSH
 COPY ssh_config /root/.ssh/config
 COPY runtimes.yml /codebuild/image/config/runtimes.yml
-COPY dockerd-entrypoint.sh /usr/local/bin/
 COPY legal/THIRD_PARTY_LICENSES.txt /usr/share/doc
 COPY legal/bill_of_material.txt /usr/share/doc
 COPY amazon-ssm-agent.json /etc/amazon/ssm/
-
-ENTRYPOINT ["dockerd-entrypoint.sh"]
 
 #=======================End of layer: aarch64_v3  =================
