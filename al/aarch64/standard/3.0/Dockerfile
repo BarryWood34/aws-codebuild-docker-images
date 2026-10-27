@@ -232,11 +232,6 @@ RUN pecl install redis-6.3.0
 RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini"
 #****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
 
-#****************     RUST     ****************************************************
-ENV RUST_94_VERSION="1.94.0"
-RUN rustup install $RUST_94_VERSION && rm -rf /tmp/*
-RUN rustc --version
-#****************      END RUST     ****************************************************
 #=======================End of layer: runtimes_1  =================
 FROM runtimes_1 AS runtimes_2
 
