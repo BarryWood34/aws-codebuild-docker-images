@@ -1,0 +1,312 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::LanguageExtensions
+Description: >-
+  Builds the TTC custom CodeBuild images and pushes them to ECR. One pipeline
+  per image. Each pipeline only runs when files in its own image folder change.
+
+# Deploy with:
+#   aws cloudformation deploy \
+#     --template-file ttc-image-pipelines.yml \
+#     --stack-name ttc-image-pipelines \
+#     --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+#     --parameter-overrides ConnectionArn=<codeconnections-arn>
+#
+# To add another image, add an entry to the Images mapping and its key to the
+# Fn::ForEach list below.
+
+Parameters:
+  ConnectionArn:
+    Type: String
+    Description: ARN of an existing, AVAILABLE CodeConnections (CodeStar) connection to GitHub.
+  FullRepositoryId:
+    Type: String
+    Default: BarryWood34/aws-codebuild-docker-images
+  BranchName:
+    Type: String
+    Default: ttc
+  BuildKitImage:
+    Type: String
+    Default: public.ecr.aws/vend/moby/buildkit:buildx-stable-1
+    Description: BuildKit image for the buildx builder. Public ECR copy, so no Docker Hub rate limits.
+
+Mappings:
+  Images:
+    # SourcePath    = folder with the Dockerfile. Changes under it trigger the pipeline.
+    # EcrRepository = existing ECR repository in this account and region.
+    # ImageTag      = tag pushed for the image. A <tag>-<short commit sha> tag is pushed too.
+    # CacheTag      = tag in the same repository that holds the BuildKit layer cache.
+    #
+    # Compute: the heavy steps (git, stunnel, PHP, Python built from source) use
+    # all cores once make runs with -j$(nproc). XLARGE is the biggest size whose
+    # curated build image is cached on the host. 2XLARGE x86 is not, so it spends
+    # minutes pulling the build image first. Each image builds on its native CPU
+    # architecture, so there is no QEMU emulation.
+    AlAarch64Std3:
+      SourcePath: al/aarch64/standard/3.0
+      EcrRepository: web-console-codebuild
+      ImageTag: aarch64-standard-3.0
+      CacheTag: buildcache-aarch64-standard-3.0
+      Platform: linux/arm64
+      EnvironmentType: ARM_CONTAINER
+      ComputeType: BUILD_GENERAL1_XLARGE # 32 vCPU, 64 GiB, 256 GB
+      BuildImage: aws/codebuild/amazonlinux-aarch64-standard:3.0
+    UbuntuStd7:
+      SourcePath: ubuntu/standard/7.0
+      EcrRepository: api-codebuild
+      ImageTag: "7.0"
+      CacheTag: buildcache-7.0
+      Platform: linux/amd64
+      EnvironmentType: LINUX_CONTAINER
+      ComputeType: BUILD_GENERAL1_XLARGE # 36 vCPU, 72 GiB, 256 GB
+      BuildImage: aws/codebuild/standard:7.0
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 14
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: pipeline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketLocation
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                  - !Sub "${ArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                  - codeconnections:UseConnection
+                Resource: !Ref ConnectionArn
+              - Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                Resource: !Sub "arn:${AWS::Partition}:codebuild:${AWS::Region}:${AWS::AccountId}:project/${AWS::StackName}-*"
+
+  Fn::ForEach::Image:
+    - ImageKey
+    - [AlAarch64Std3, UbuntuStd7]
+    - ${ImageKey}BuildRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service: codebuild.amazonaws.com
+                Action: sts:AssumeRole
+          Policies:
+            - PolicyName: build
+              PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: Allow
+                    Action:
+                      - logs:CreateLogGroup
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                    Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}-${ImageKey}*"
+                  - Effect: Allow
+                    Action:
+                      - s3:GetObject
+                      - s3:GetObjectVersion
+                    Resource: !Sub "${ArtifactBucket.Arn}/*"
+                  - Effect: Allow
+                    Action: ecr:GetAuthorizationToken
+                    Resource: "*"
+                  - Effect: Allow
+                    Action:
+                      - ecr:BatchCheckLayerAvailability
+                      - ecr:BatchGetImage
+                      - ecr:GetDownloadUrlForLayer
+                      - ecr:InitiateLayerUpload
+                      - ecr:UploadLayerPart
+                      - ecr:CompleteLayerUpload
+                      - ecr:PutImage
+                    Resource: !Sub
+                      - "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${Repo}"
+                      - Repo: !FindInMap [Images, !Ref ImageKey, EcrRepository]
+
+      ${ImageKey}Project:
+        Type: AWS::CodeBuild::Project
+        Properties:
+          Name: !Sub "${AWS::StackName}-${ImageKey}"
+          ServiceRole: !GetAtt
+            - !Sub "${ImageKey}BuildRole"
+            - Arn
+          TimeoutInMinutes: 120
+          Source:
+            Type: CODEPIPELINE
+            BuildSpec: |
+              version: 0.2
+              env:
+                shell: bash
+              phases:
+                pre_build:
+                  commands:
+                    - IMAGE="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY}"
+                    - aws ecr get-login-password | docker login --username AWS --password-stdin "${IMAGE%%/*}"
+                    - docker buildx create --name ci --driver docker-container --driver-opt "image=${BUILDKIT_IMAGE}" --use --bootstrap
+                build:
+                  commands:
+                    - cd "${CODEBUILD_SRC_DIR}/${SOURCE_PATH}"
+                    - SHORT_SHA="${COMMIT_ID:0:7}"
+                    - |
+                      if [ "${NO_CACHE}" = "true" ]; then
+                        CACHE_FROM="--no-cache"
+                      else
+                        CACHE_FROM="--cache-from type=registry,ref=${IMAGE}:${CACHE_TAG}"
+                      fi
+                    # mode=max caches every stage. ignore-error stops a cache
+                    # upload problem from failing a good build. provenance=false
+                    # pushes a plain image manifest that CodeBuild can pull.
+                    - >-
+                      docker buildx build
+                      --platform "${PLATFORM}"
+                      --progress plain
+                      ${CACHE_FROM}
+                      --cache-to "type=registry,ref=${IMAGE}:${CACHE_TAG},mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,ignore-error=true"
+                      --provenance=false
+                      --tag "${IMAGE}:${IMAGE_TAG}"
+                      --tag "${IMAGE}:${IMAGE_TAG}-${SHORT_SHA}"
+                      --push
+                      .
+                post_build:
+                  commands:
+                    - echo "Pushed ${IMAGE}:${IMAGE_TAG} and ${IMAGE}:${IMAGE_TAG}-${SHORT_SHA}"
+          Artifacts:
+            Type: CODEPIPELINE
+          Environment:
+            Type: !FindInMap [Images, !Ref ImageKey, EnvironmentType]
+            ComputeType: !FindInMap [Images, !Ref ImageKey, ComputeType]
+            Image: !FindInMap [Images, !Ref ImageKey, BuildImage]
+            ImagePullCredentialsType: CODEBUILD
+            PrivilegedMode: true
+            EnvironmentVariables:
+              - Name: AWS_ACCOUNT_ID
+                Value: !Ref AWS::AccountId
+              - Name: ECR_REPOSITORY
+                Value: !FindInMap [Images, !Ref ImageKey, EcrRepository]
+              - Name: IMAGE_TAG
+                Value: !FindInMap [Images, !Ref ImageKey, ImageTag]
+              - Name: CACHE_TAG
+                Value: !FindInMap [Images, !Ref ImageKey, CacheTag]
+              - Name: SOURCE_PATH
+                Value: !FindInMap [Images, !Ref ImageKey, SourcePath]
+              - Name: PLATFORM
+                Value: !FindInMap [Images, !Ref ImageKey, Platform]
+              - Name: BUILDKIT_IMAGE
+                Value: !Ref BuildKitImage
+              # COMMIT_ID and NO_CACHE are set by the pipeline action.
+              - Name: COMMIT_ID
+                Value: unknown
+              - Name: NO_CACHE
+                Value: "false"
+
+      ${ImageKey}Pipeline:
+        Type: AWS::CodePipeline::Pipeline
+        Properties:
+          Name: !Sub "${AWS::StackName}-${ImageKey}"
+          PipelineType: V2
+          # A newer commit replaces a run that is still waiting or running.
+          ExecutionMode: SUPERSEDED
+          RoleArn: !GetAtt PipelineRole.Arn
+          ArtifactStore:
+            Type: S3
+            Location: !Ref ArtifactBucket
+          Variables:
+            - Name: NoCache
+              DefaultValue: "false"
+              Description: Set to true on a manual run to rebuild every layer without the cache.
+          Triggers:
+            - ProviderType: CodeStarSourceConnection
+              GitConfiguration:
+                SourceActionName: Source
+                Push:
+                  - Branches:
+                      Includes:
+                        - !Ref BranchName
+                    FilePaths:
+                      Includes:
+                        - !Sub
+                          - "${Path}/**"
+                          - Path: !FindInMap [Images, !Ref ImageKey, SourcePath]
+          Stages:
+            - Name: Source
+              Actions:
+                - Name: Source
+                  Namespace: SourceVariables
+                  ActionTypeId:
+                    Category: Source
+                    Owner: AWS
+                    Provider: CodeStarSourceConnection
+                    Version: "1"
+                  Configuration:
+                    ConnectionArn: !Ref ConnectionArn
+                    FullRepositoryId: !Ref FullRepositoryId
+                    BranchName: !Ref BranchName
+                    OutputArtifactFormat: CODE_ZIP
+                  OutputArtifacts:
+                    - Name: SourceOutput
+            - Name: Build
+              Actions:
+                - Name: BuildAndPush
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Provider: CodeBuild
+                    Version: "1"
+                  Configuration:
+                    ProjectName: !Ref
+                      Fn::Sub: "${ImageKey}Project"
+                    EnvironmentVariables: >-
+                      [{"name":"COMMIT_ID","value":"#{SourceVariables.CommitId}","type":"PLAINTEXT"},
+                      {"name":"NO_CACHE","value":"#{variables.NoCache}","type":"PLAINTEXT"}]
+                  InputArtifacts:
+                    - Name: SourceOutput
+
+Outputs:
+  Fn::ForEach::ImageOutputs:
+    - ImageKey
+    - [AlAarch64Std3, UbuntuStd7]
+    - ${ImageKey}PipelineName:
+        Value: !Ref
+          Fn::Sub: "${ImageKey}Pipeline"
+      ${ImageKey}ImageUri:
+        Value: !Sub
+          - "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repo}:${Tag}"
+          - Repo: !FindInMap [Images, !Ref ImageKey, EcrRepository]
+            Tag: !FindInMap [Images, !Ref ImageKey, ImageTag]
