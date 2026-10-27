@@ -73,9 +73,7 @@ FROM tools AS runtimes_1
 
 ENV NODE_18_VERSION="18.20.6"
 
-RUN n --no-preserve $NODE_18_VERSION && npm install --save-dev -g -f grunt \
-    && npm install --save-dev -g -f grunt-cli \
-    && npm install --save-dev -g -f webpack \
+RUN n --no-preserve $NODE_18_VERSION \
     && npm install --save-dev -g -f yarn \
     && dnf install -y -v libuv-1.44* \
     && cd / && rm -rf $N_SRC_DIR \
