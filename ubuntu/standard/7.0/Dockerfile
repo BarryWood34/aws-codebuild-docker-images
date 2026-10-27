@@ -104,11 +104,20 @@ RUN phpenv update \
 
 #****************      INSTALL FROM BUILDSPEC.YML     ****************************************************
 #  in order to avoid running these commands during built time.
-RUN apt-get install -y php-pear php-dev
-RUN pecl install mongodb-1.21.0
-RUN echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini"
-RUN pecl install redis
-RUN echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini"
+# Built from the source tarballs instead of pecl: the PEAR client in the OS
+# repos can't read the chunked responses pecl.php.net now sends.
+RUN set -ex \
+    && for ext in mongodb-1.21.0 redis-6.3.0; do \
+         curl -fsSL "https://pecl.php.net/get/${ext}.tgz" -o /tmp/${ext}.tgz \
+         && mkdir /tmp/${ext} && tar xzf /tmp/${ext}.tgz -C /tmp/${ext} --strip-components=1 \
+         && cd /tmp/${ext} \
+         && /root/.phpenv/versions/$PHP_83_VERSION/bin/phpize \
+         && ./configure --with-php-config=/root/.phpenv/versions/$PHP_83_VERSION/bin/php-config \
+         && make -j"$(nproc)" && make install && cd / || exit 1; \
+       done \
+    && echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini" \
+    && echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini" \
+    && rm -rf /tmp/*
 
 #****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
 
