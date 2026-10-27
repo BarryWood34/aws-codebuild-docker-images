@@ -172,14 +172,6 @@ RUN n --no-preserve $NODE_18_VERSION && npm install --save-dev -g -f grunt \
     && npm install --save-dev -g -f webpack \
     && npm install --save-dev -g -f yarn \
     && dnf install -y -v libuv-1.44* \
-    && n $NODE_22_VERSION && npm install --save-dev -g -f grunt \
-    && npm install --save-dev -g -f grunt-cli \
-    && npm install --save-dev -g -f webpack \
-    && npm install --save-dev -g -f yarn \
-    && n $NODE_24_VERSION && npm install --save-dev -g -f grunt \
-    && npm install --save-dev -g -f grunt-cli \
-    && npm install --save-dev -g -f webpack \
-    && npm install --save-dev -g -f yarn \
     && cd / && rm -rf $N_SRC_DIR \
     && rm -rf /tmp/* && rm -rf ~/.npm/_logs/
 #****************      END NODEJS     ****************************************************
