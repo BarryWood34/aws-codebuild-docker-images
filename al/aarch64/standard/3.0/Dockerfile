@@ -29,12 +29,12 @@ RUN set -ex \
            libyaml-devel libzip-devel mlocate \
            ncurses-devel oniguruma-devel openssl openssl-devel perl-DBD-SQLite \
            perl-DBI perl-HTTP-Date perl-TimeDate perl-YAML-LibYAML perl perl-FindBin \
-           postgresql-devel procps-ng python-configobj readline-devel rsync sgml-common \
+           procps-ng python-configobj readline-devel rsync sgml-common \
            patch pkg-config procps python3-configobj llvm rsync sqlite-devel \
            subversion-perl tar tcl tk telnet texinfo time tzdata vim wget which xfsprogs xmlto xorg-x11-server-Xvfb xz-devel \
            git git-lfs acl unzip \
            automake binutils bison brotli file findutils flex gnupg2 libsecret-devel libtool \
-           libxkbfile-devel lz4 m4 make mesa-libgbm-devel mariadb105-devel mercurial net-tools pigz pkg-config xorriso xz zip
+           libxkbfile-devel lz4 m4 make mesa-libgbm-devel mercurial net-tools pigz pkg-config xorriso xz zip
 
 RUN useradd codebuild-user
 
@@ -88,7 +88,7 @@ RUN n --no-preserve $NODE_18_VERSION && npm install --save-dev -g -f grunt \
 ENV PHP_83_VERSION="8.3.36"
 
 # Set environment variables for PHP configure options
-ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsql --with-libedit"
+ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-libedit"
 # Set make arguments to use 4 parallel jobs.
 ENV PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j4"
 

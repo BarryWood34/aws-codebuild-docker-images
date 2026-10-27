@@ -38,8 +38,8 @@ RUN set -ex \
         libedit-dev liberror-perl libevent-dev libffi-dev \
         libgeoip-dev libgbm-dev libgconf-2-4 libglib2.0-dev libgsl-dev libgtk-3-0 \
         libhttp-date-perl libio-pty-perl libjpeg-dev libkrb5-dev liblzma-dev \
-        libmagic-dev libmagickcore-dev libmagickwand-dev libmysqlclient-dev \
-        libncurses5-dev libncursesw5-dev libonig-dev libpq-dev libreadline-dev \
+        libmagic-dev libmagickcore-dev libmagickwand-dev \
+        libncurses5-dev libncursesw5-dev libonig-dev libreadline-dev \
         libsecret-1-dev libserf-1-1 libsodium-dev libsqlite3-dev libssl-dev \
         libsvn1 libsvn-perl libtcl8.6 libtidy-dev libtimedate-perl libtool libunwind8 \
         libwebp-dev libxkbfile-dev libxml2-dev libxml2-utils libxslt1-dev libxss1 \
@@ -98,7 +98,7 @@ ENV PATH="/root/.phpenv/shims:/root/.phpenv/bin:$PATH"
 
 ENV PHP_83_VERSION="8.3.36"
 # Set environment variables for PHP configure options
-ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsql --with-libedit"
+ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-libedit"
 
 RUN phpenv update \
     && PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j$(nproc)" phpenv install $PHP_83_VERSION \
