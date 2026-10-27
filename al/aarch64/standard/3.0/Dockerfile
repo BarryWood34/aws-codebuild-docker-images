@@ -60,7 +60,7 @@ RUN set -ex \
    && curl -L -o $GIT_TAR_FILE $GIT_SRC \
    && tar zxf $GIT_TAR_FILE \
    && cd git-$GIT_VERSION \
-   && make -j4 prefix=/usr \
+   && make -j"$(nproc)" prefix=/usr \
    && make install prefix=/usr \
    && cd .. && rm -rf git-$GIT_VERSION \
    && rm -rf $GIT_TAR_FILE /tmp/* \
@@ -76,7 +76,7 @@ RUN set -ex \
    && tar xvfz $STUNNEL_TAR \
    && cd stunnel-$STUNNEL_VERSION \
    && ./configure \
-   && make -j4 \
+   && make -j"$(nproc)" \
    && make install \
    && openssl genrsa -out key.pem 2048 \
    && openssl req -new -x509 -key key.pem -out cert.pem -days 1095 -subj "/C=US/ST=Washington/L=Seattle/O=Amazon/OU=Codebuild/CN=codebuild.amazon.com" \
@@ -205,7 +205,7 @@ ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsq
 ENV PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j4"
 
 RUN phpenv update \
-    && phpenv install $PHP_83_VERSION \
+    && PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j$(nproc)" phpenv install $PHP_83_VERSION \
     && phpenv global $PHP_83_VERSION \
     && php -v \
     && echo "memory_limit = -1;" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/conf.d/memory.ini" \

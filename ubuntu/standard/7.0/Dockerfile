@@ -79,7 +79,7 @@ RUN set -ex \
     && curl -L -o $GIT_TAR_FILE $GIT_SRC \
     && tar zxf $GIT_TAR_FILE \
     && cd git-$GIT_VERSION \
-    && make -j4 \
+    && make -j"$(nproc)" \
     && make install prefix=/usr \
     && cd .. && rm -rf git-$GIT_VERSION \
     && rm -rf $GIT_TAR_FILE /tmp/* \
@@ -108,7 +108,7 @@ RUN set -ex \
     && curl -o $STUNNEL_TAR https://www.stunnel.org/archive/5.x/$STUNNEL_TAR && echo "$STUNNEL_SHA256 $STUNNEL_TAR" | sha256sum --check && tar xfz $STUNNEL_TAR \
     && cd stunnel-$STUNNEL_VERSION \
     && ./configure \
-    && make -j4 \
+    && make -j"$(nproc)" \
     && make install \
     && openssl genrsa -out key.pem 2048 \
     && openssl req -new -x509 -key key.pem -out cert.pem -days 1095 -subj "/C=US/ST=Washington/L=Seattle/O=Amazon/OU=Codebuild/CN=codebuild.amazon.com" \
@@ -229,7 +229,7 @@ ENV PHP_83_VERSION="8.3.36"
 ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-pdo-pgsql --with-libedit"
 
 RUN phpenv update \
-    && phpenv install $PHP_83_VERSION \
+    && PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j$(nproc)" phpenv install $PHP_83_VERSION \
     && phpenv global $PHP_83_VERSION \
     && php -v \
     && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/conf.d/memory.ini" \
