@@ -20,21 +20,21 @@ RUN set -ex \
     && chmod 600 ~/.ssh/known_hosts \
     && yum groupinstall -yq "Development tools" \
     && yum install -yq --allowerasing \
-           ImageMagick asciidoc bzip2 bzip2-devel cvs cvsps automake \
-           docbook-dtds docbook-style-xsl e2fsprogs expat-devel expect fakeroot \
-           glib2-devel groff gzip icu jq krb5-server libargon2-devel \
+           bzip2 bzip2-devel automake \
+           e2fsprogs expat-devel expect fakeroot \
+           glib2-devel groff gzip icu jq libargon2-devel \
            libcurl-devel libdb-devel libedit-devel libevent-devel libffi-devel \
-           libicu-devel libjpeg-devel libpng-devel libserf \
+           libicu-devel libjpeg-devel libpng-devel zlib-devel \
            libtidy libtidy-devel libunwind libwebp-devel libxml2-devel libxslt libxslt-devel \
-           libyaml-devel libzip-devel mlocate \
-           ncurses-devel oniguruma-devel openssl openssl-devel perl-DBD-SQLite \
-           perl-DBI perl-HTTP-Date perl-TimeDate perl-YAML-LibYAML perl perl-FindBin \
-           procps-ng python-configobj readline-devel rsync sgml-common \
-           patch pkg-config procps python3-configobj llvm rsync sqlite-devel \
-           subversion-perl tar tcl tk telnet texinfo time tzdata vim wget which xfsprogs xmlto xorg-x11-server-Xvfb xz-devel \
+           libyaml-devel libzip-devel \
+           ncurses-devel oniguruma-devel openssl openssl-devel \
+           perl perl-FindBin \
+           procps-ng python-configobj readline-devel rsync \
+           patch pkg-config procps python3-configobj rsync sqlite-devel \
+           tar time tzdata vim wget which xfsprogs xz-devel \
            git git-lfs acl unzip \
-           automake binutils bison brotli file findutils flex gnupg2 libsecret-devel libtool \
-           libxkbfile-devel lz4 m4 make mesa-libgbm-devel mercurial net-tools pigz pkg-config xorriso xz zip
+           automake binutils bison brotli file findutils flex gnupg2 libtool \
+           lz4 m4 make net-tools pigz pkg-config xz zip
 
 RUN useradd codebuild-user
 

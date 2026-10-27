@@ -26,31 +26,30 @@ RUN set -ex \
     && ssh-keyscan -t rsa,dsa,ed25519,ecdsa -H bitbucket.org >> ~/.ssh/known_hosts \
     && chmod 600 ~/.ssh/known_hosts \
     && apt-get install -y -qq --no-install-recommends \
-        acl apt-utils aria2 asciidoc autoconf automake \
-        binutils bison brotli build-essential bzip2 bzr \
-        coreutils curl dirmngr dnsutils docbook-xml docbook-xsl dpkg dpkg-dev \
-        e2fsprogs expect fakeroot file findutils flex fonts-noto-color-emoji ftp \
+        acl apt-utils autoconf automake \
+        binutils bison brotli build-essential bzip2 \
+        coreutils curl dirmngr dnsutils dpkg dpkg-dev \
+        e2fsprogs expect fakeroot file findutils flex \
         g++ gcc git git-lfs gettext gettext-base gnupg2 groff gzip \
-        haveged imagemagick iproute2 jq less \
-        lib32z1 libapr1 libaprutil1 libargon2-0-dev libbz2-dev \
-        libc++-dev libc++abi-dev libc6-dev libcurl4-openssl-dev \
-        libdb-dev libdbd-sqlite3-perl libdbi-perl libdpkg-perl \
+        iproute2 jq less \
+        libargon2-0-dev libbz2-dev \
+        libc6-dev libcurl4-openssl-dev \
+        libdb-dev libdpkg-perl \
         libedit-dev liberror-perl libevent-dev libffi-dev \
-        libgeoip-dev libgbm-dev libgconf-2-4 libglib2.0-dev libgsl-dev libgtk-3-0 \
-        libhttp-date-perl libio-pty-perl libjpeg-dev libkrb5-dev liblzma-dev \
-        libmagic-dev libmagickcore-dev libmagickwand-dev \
+        libglib2.0-dev \
+        libfreetype-dev libicu-dev libjpeg-dev libkrb5-dev liblzma-dev libpng-dev \
         libncurses5-dev libncursesw5-dev libonig-dev libreadline-dev \
-        libsecret-1-dev libserf-1-1 libsodium-dev libsqlite3-dev libssl-dev \
-        libsvn1 libsvn-perl libtcl8.6 libtidy-dev libtimedate-perl libtool libunwind8 \
-        libwebp-dev libxkbfile-dev libxml2-dev libxml2-utils libxslt1-dev libxss1 \
-        libyaml-dev libyaml-perl libzip-dev llvm locales lz4 \
-        m4 make mediainfo mercurial mlocate net-tools netbase netcat \
-        openssl patch p7zip-full p7zip-rar parallel pass patchelf pigz pkg-config pollinate procps \
-        python-is-python3 python3-configobj python3-openssl rpm rsync \
-        sgml-base sgml-data shellcheck sphinxsearch sqlite3 ssh sshpass subversion sudo swig systemd-coredump \
-        tar tcl tcl8.6 telnet texinfo time tk tk-dev tzdata \
-        unzip upx vim wget xfsprogs xml-core xmlto xorriso xsltproc \
-        xvfb xz-utils zip zlib1g-dev zsync \
+        libsodium-dev libsqlite3-dev libssl-dev \
+        libtidy-dev libtool libunwind8 \
+        libwebp-dev libxml2-dev libxml2-utils libxslt1-dev \
+        libyaml-dev libzip-dev locales lz4 \
+        m4 make net-tools netbase netcat \
+        openssl patch patchelf pigz pkg-config procps \
+        python-is-python3 python3-configobj python3-openssl rsync \
+        sgml-base sqlite3 ssh sudo systemd-coredump \
+        tar time tzdata \
+        unzip vim wget xfsprogs xml-core xsltproc \
+        xz-utils zip zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && \
