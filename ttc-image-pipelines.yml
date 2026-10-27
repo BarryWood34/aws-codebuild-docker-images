@@ -9,15 +9,15 @@ Description: >-
 #     --template-file ttc-image-pipelines.yml \
 #     --stack-name ttc-image-pipelines \
 #     --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-#     --parameter-overrides ConnectionArn=<codeconnections-arn>
+#     --parameter-overrides CodeStarCfnStackName=<codestar-stack-name>
 #
 # To add another image, add an entry to the Images mapping and its key to the
 # Fn::ForEach list below.
 
 Parameters:
-  ConnectionArn:
+  CodeStarCfnStackName:
     Type: String
-    Description: ARN of an existing, AVAILABLE CodeConnections (CodeStar) connection to GitHub.
+    Description: Codestar cloudformation stack name. Its <stack>:Connection export is used as the GitHub connection.
   FullRepositoryId:
     Type: String
     Default: BarryWood34/aws-codebuild-docker-images
@@ -108,7 +108,8 @@ Resources:
                 Action:
                   - codestar-connections:UseConnection
                   - codeconnections:UseConnection
-                Resource: !Ref ConnectionArn
+                Resource: !ImportValue
+                    Fn::Sub: ${CodeStarCfnStackName}:Connection
               - Effect: Allow
                 Action:
                   - codebuild:StartBuild
@@ -275,7 +276,8 @@ Resources:
                     Provider: CodeStarSourceConnection
                     Version: "1"
                   Configuration:
-                    ConnectionArn: !Ref ConnectionArn
+                    ConnectionArn: !ImportValue
+                        Fn::Sub: ${CodeStarCfnStackName}:Connection
                     FullRepositoryId: !Ref FullRepositoryId
                     BranchName: !Ref BranchName
                     OutputArtifactFormat: CODE_ZIP
