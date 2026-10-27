@@ -52,12 +52,6 @@ RUN set -ex \
         xz-utils zip zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && \
-    apt-get install -y unattended-upgrades && \
-    unattended-upgrade -v --dry-run && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 ENV LC_CTYPE="C.UTF-8"
 
 # Set locale
