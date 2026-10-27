@@ -129,10 +129,6 @@ ENV N_SRC_DIR="$SRC_DIR/n"
 RUN git clone https://github.com/tj/n $N_SRC_DIR \
     && cd $N_SRC_DIR && make install
 
-##python
-RUN curl -s -S -L https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
-ENV PATH="/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
-
 ##php
 RUN curl -L https://raw.githubusercontent.com/phpenv/phpenv-installer/master/bin/phpenv-installer | bash
 ENV PATH="/root/.phpenv/shims:/root/.phpenv/bin:$PATH"
@@ -166,24 +162,6 @@ RUN n --no-preserve $NODE_18_VERSION && npm install --save-dev -g -f grunt \
     && cd / && rm -rf $N_SRC_DIR \
     && rm -rf /tmp/* && rm -rf ~/.npm/_logs/
 #****************      END NODEJS     ****************************************************
-
-#**************** PYTHON *****************************************************
-ENV PYTHON_313_VERSION="3.13.1" \
-    PYTHON_PIP_VERSION="25.0" \
-    PYYAML_VERSION="6.0.2" \
-    PYTHON_SETUPTOOLS_VERSION="75.8.0" \
-    PYTHON_CONFIGURE_OPTS="--enable-shared --enable-loadable-sqlite-extensions"
-
-RUN set -ex \
-    && pyenv install $PYTHON_313_VERSION \
-    && pyenv global $PYTHON_313_VERSION \
-    && pip3 install --no-cache-dir --upgrade --force-reinstall "pip==$PYTHON_PIP_VERSION" \
-    && pip3 install wheel \
-    && pip3 install --no-cache-dir --upgrade "setuptools==$PYTHON_SETUPTOOLS_VERSION" boto3 pipenv virtualenv \
-    && pip3 install --no-build-isolation "Cython<3" "PyYAML==$PYYAML_VERSION" \
-    && pip3 uninstall cython --yes
-
-#**************** END PYTHON *****************************************************
 
 #****************      PHP     ****************************************************
 
@@ -223,7 +201,6 @@ FROM runtimes_3 AS aarch64_v3
 
 # Activate runtime versions specific to image version.
 RUN n --preserve $NODE_18_VERSION
-RUN pyenv global $PYTHON_313_VERSION
 RUN phpenv global $PHP_83_VERSION
 
 # Configure SSH
