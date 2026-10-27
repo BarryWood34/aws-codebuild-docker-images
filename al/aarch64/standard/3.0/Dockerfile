@@ -32,7 +32,7 @@ RUN set -ex \
            postgresql-devel procps-ng python-configobj readline-devel rsync sgml-common \
            patch pkg-config procps python3-configobj llvm rsync sqlite-devel \
            subversion-perl tar tcl tk telnet texinfo time tzdata vim wget which xfsprogs xmlto xorg-x11-server-Xvfb xz-devel \
-           git-lfs acl unzip \
+           git git-lfs acl unzip \
            automake binutils bison brotli file findutils flex gnupg2 libsecret-devel libtool \
            libxkbfile-devel lz4 m4 make mesa-libgbm-devel mariadb105-devel mercurial net-tools pigz pkg-config xorriso xz zip
 
@@ -49,20 +49,6 @@ RUN wget -nv https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam
     && rm /tmp/samcli.zip /opt/install \
     && rm -rf /opt/aws-sam-cli-src \
     && sam --version
-
-# Install Git
-RUN set -ex \
-   && GIT_VERSION=2.53.0 \
-   && GIT_TAR_FILE=git-$GIT_VERSION.tar.gz \
-   && GIT_SRC=https://github.com/git/git/archive/v${GIT_VERSION}.tar.gz  \
-   && curl -L -o $GIT_TAR_FILE $GIT_SRC \
-   && tar zxf $GIT_TAR_FILE \
-   && cd git-$GIT_VERSION \
-   && make -j"$(nproc)" prefix=/usr \
-   && make install prefix=/usr \
-   && cd .. && rm -rf git-$GIT_VERSION \
-   && rm -rf $GIT_TAR_FILE /tmp/* \
-   && git --version
 
 # Install stunnel
 RUN set -ex \

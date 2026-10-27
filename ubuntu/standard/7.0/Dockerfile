@@ -30,7 +30,7 @@ RUN set -ex \
         binutils bison brotli build-essential bzip2 bzr \
         coreutils curl dirmngr dnsutils docbook-xml docbook-xsl dpkg dpkg-dev \
         e2fsprogs expect fakeroot file findutils flex fonts-noto-color-emoji ftp \
-        g++ gcc git-lfs gettext gettext-base gnupg2 groff gzip \
+        g++ gcc git git-lfs gettext gettext-base gnupg2 groff gzip \
         haveged imagemagick iproute2 jq less \
         lib32z1 libapr1 libaprutil1 libargon2-0-dev libbz2-dev \
         libc++-dev libc++abi-dev libc6-dev libcurl4-openssl-dev \
@@ -70,20 +70,6 @@ RUN useradd codebuild-user
 #=======================End of layer: core  =================
 
 FROM core AS tools
-
-# Install Git
-RUN set -ex \
-    && GIT_VERSION=2.53.0 \
-    && GIT_TAR_FILE=git-$GIT_VERSION.tar.gz \
-    && GIT_SRC=https://github.com/git/git/archive/v${GIT_VERSION}.tar.gz  \
-    && curl -L -o $GIT_TAR_FILE $GIT_SRC \
-    && tar zxf $GIT_TAR_FILE \
-    && cd git-$GIT_VERSION \
-    && make -j"$(nproc)" \
-    && make install prefix=/usr \
-    && cd .. && rm -rf git-$GIT_VERSION \
-    && rm -rf $GIT_TAR_FILE /tmp/* \
-    && git --version
 
 # Install AWS SAM CLI
 RUN wget -nv https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip -O /tmp/samcli.zip \
