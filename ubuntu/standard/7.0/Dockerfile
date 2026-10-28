@@ -89,15 +89,15 @@ FROM tools AS runtimes
 RUN curl -L https://raw.githubusercontent.com/phpenv/phpenv-installer/master/bin/phpenv-installer | bash
 ENV PATH="/root/.phpenv/shims:/root/.phpenv/bin:$PATH"
 
-ENV PHP_83_VERSION="8.3.36"
+ENV PHP_85_VERSION="8.5.12"
 # Set environment variables for PHP configure options
 ENV PHP_BUILD_CONFIGURE_OPTS="--with-curl --with-password-argon2 --with-libedit"
 
 RUN phpenv update \
-    && PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j$(nproc)" phpenv install $PHP_83_VERSION \
-    && phpenv global $PHP_83_VERSION \
+    && PHP_BUILD_EXTRA_MAKE_ARGUMENTS="-j$(nproc)" phpenv install $PHP_85_VERSION \
+    && phpenv global $PHP_85_VERSION \
     && php -v \
-    && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/conf.d/memory.ini" \
+    && echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_85_VERSION/etc/conf.d/memory.ini" \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer \
     && rm -rf /tmp/*
 #****************      END PHP     ****************************************************
@@ -107,16 +107,16 @@ RUN phpenv update \
 # Built from the source tarballs instead of pecl: the PEAR client in the OS
 # repos can't read the chunked responses pecl.php.net now sends.
 RUN set -ex \
-    && for ext in mongodb-1.21.0 redis-6.3.0; do \
+    && for ext in mongodb-2.5.5 redis-6.3.0; do \
          curl -fsSL "https://pecl.php.net/get/${ext}.tgz" -o /tmp/${ext}.tgz \
          && mkdir /tmp/${ext} && tar xzf /tmp/${ext}.tgz -C /tmp/${ext} --strip-components=1 \
          && cd /tmp/${ext} \
-         && /root/.phpenv/versions/$PHP_83_VERSION/bin/phpize \
-         && ./configure --with-php-config=/root/.phpenv/versions/$PHP_83_VERSION/bin/php-config \
+         && /root/.phpenv/versions/$PHP_85_VERSION/bin/phpize \
+         && ./configure --with-php-config=/root/.phpenv/versions/$PHP_85_VERSION/bin/php-config \
          && make -j"$(nproc)" && make install && cd / || exit 1; \
        done \
-    && echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini" \
-    && echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_83_VERSION/etc/php.ini" \
+    && echo "extension=mongodb.so" >> "/root/.phpenv/versions/$PHP_85_VERSION/etc/php.ini" \
+    && echo "extension=redis.so" >> "/root/.phpenv/versions/$PHP_85_VERSION/etc/php.ini" \
     && rm -rf /tmp/*
 
 #****************      END INSTALL FROM BUILDSPEC.YML     ****************************************************
@@ -126,7 +126,7 @@ RUN set -ex \
 FROM runtimes AS std_v7
 
 # Activate runtime versions specific to image version.
-RUN phpenv global $PHP_83_VERSION
+RUN phpenv global $PHP_85_VERSION
 
 # Configure SSH
 COPY ssh_config /root/.ssh/config
